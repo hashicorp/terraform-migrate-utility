@@ -41,6 +41,7 @@ import (
     "path/filepath"
     "terraform-migrate-utility/rpcapi"
     "terraform-migrate-utility/rpcapi/terraform1/stacks"
+    "terraform-migrate-utility/rpcapi/tfstacksagent1"
     stateOps "terraform-migrate-utility/stateops"
 
     "google.golang.org/protobuf/encoding/protojson"
