@@ -1,0 +1,117 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
+syntax = "proto3";
+package tfstacksagent1;
+
+import "google/protobuf/any.proto";
+import "terraform1.proto";
+import "dependencies/dependencies.proto";
+import "stacks/stacks.proto";
+
+option go_package = terraform-migrate-utility/rpcapi/tfstacksagent1";
+
+// Describes our "raw config" format that passes verbatim from stack_prepare
+// to both stack_plan and stack_apply, so that the agent can pass arbitrary
+// analysis context between the jobs without always needing to update Atlas
+// whenever we need to track something new or different.
+message StackConfig {
+    // This is currently always set to 1, the first version of this format.
+    //
+    // It should change only if a subsequent version is incompatible to the
+    // extent that an older version of the agent would behave incorrectly
+    // when encountering the newer format. Changes to this message should
+    // be both backward- and forward-compatible as far as possible, which
+    // then does not require changing this version number, because the
+    // plan and apply phases might be run by a different agent version than
+    // the one that ran the prepare job.
+    //
+    // If we do make a new major version of this format, it's safe to use
+    // a new message type for it as long as it includes an equivalent
+    // definition of format_version; the message name and field name are not
+    // part of the protocol buffers wire format, but the type and index of this
+    // field must match.
+    int64 format_version = 1;
+
+    // The version selections and checksums for external provider plugins
+    // available for use by the stack configuration.
+    repeated terraform1.ProviderPackage provider_plugins = 2;
+
+    // Records all of the schemas for the providers used by this configuration,
+    // as returned by Terraform Core.
+    //
+    // We strip all docstring objects from the schema before storing it, so
+    // all docstring fields will always be unpopulated. We're interested only
+    // in the machine-readable type information.
+    map<string, terraform1.dependencies.ProviderSchema> provider_schemas = 3;
+}
+
+// Describes our "raw plan" format that passes verbatim from stack_plan to
+// stack_apply so that we can reload all of the information required to
+// actually apply the plan.
+message StackPlan {
+    // This is currently always set to 1, the first version of this format.
+    //
+    // It should change only if a subsequent version is incompatible to the
+    // extent that an older version of the agent would behave incorrectly
+    // when encountering the newer format. For most changes we should try to
+    // be backward-compatible.
+    //
+    // If we do make a new major version of this format, it's safe to use
+    // a new message type for it as long as it includes an equivalent
+    // definition of format_version; the message name and field name are not
+    // part of the protocol buffers wire format, but the type and index of this
+    // field must match.
+    int64 format_version = 1;
+
+    // We store the full planned changes messages received from Terraform Core,
+    // each of which has two parts:
+    //
+    // - Raw protocol buffers messages emitted by Terraform Core during the
+    //   planning process. They are opaque to HCP Terraform Agent and all
+    //   other subsystems, so should just be passed verbatim back to Terraform
+    //   Core during the apply step without making any attempt to decode them.
+    //
+    // - Change descriptions interpreted by HCP Terraform Agent and converted
+    //   into an external JSON format, for use by other systems.
+    repeated terraform1.stacks.PlannedChange planned_changes = 2;
+
+    // The mode used to create the plan is useful for later reasoning about the
+    // semantics of the entire operation.
+    terraform1.stacks.PlanMode plan_mode = 3;
+}
+
+// Describes our "raw state" format that is used as the input to both plan and
+// apply operations, and is updated by apply operations. The state consists of
+// two maps: the raw state values, and the state descriptions. Both maps are
+// updated by HCP Terraform Agent according to the protocol specification.
+message StackState {
+    // This is currently always set to 1, the first version of this format.
+    //
+    // It should change only if a subsequent version is incompatible to the
+    // extent that an older version of the agent would behave incorrectly
+    // when encountering the newer format. For most changes we should try to
+    // be backward-compatible.
+    //
+    // If we do make a new major version of this format, it's safe to use
+    // a new message type for it as long as it includes an equivalent
+    // definition of format_version; the message name and field name are not
+    // part of the protocol buffers wire format, but the type and index of this
+    // field must match.
+    int64 format_version = 1;
+
+    // Raw state values. This map contains raw protocol buffers messages
+    // emitted by Terraform Core during the apply operation. They are opaque
+    // to HCP Terraform Agent and all other subsystems, so should just be
+    // passed verbatim back to Terraform Core for subseqeuent plan and apply
+    // operations without making any attempt to decode them.
+    map<string, google.protobuf.Any> raw = 2;
+
+    // State descriptions. This map contains the decoded change descriptions
+    // emitted by Terraform during the apply operation. HCP Terraform Agent
+    // decodes these in order to update the change description document and
+    // produce the state description document. These are stored verbatim,
+    // including any unknown fields, so that a later agent version can
+    // reprocess them into the JSON description formats without losing data.
+    map<string, terraform1.stacks.AppliedChange.ChangeDescription> descriptions = 3;
+}
