@@ -10,14 +10,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
-func ReadPlan(r io.Reader) (*StackPlan, error) {
-	return readProto[StackPlan, *StackPlan](r)
-}
-
-func WritePlan(w io.Writer, data *StackPlan) error {
-	return writeProto(w, data)
-}
-
 func ReadStateSnapshot(r io.Reader) (*StackState, error) {
 	state, err := readProto[StackState, *StackState](r)
 
