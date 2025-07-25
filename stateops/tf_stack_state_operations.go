@@ -25,7 +25,8 @@ type TFStateOperations interface {
 	OpenStacksConfiguration(sourceBundleHandle int64, stackConfigPath string) (int64, func() error, error)
 	OpenDependencyLockFile(handle int64, dotTFLockFile string) (int64, func() error, error)
 	OpenProviderCache(dotTFProvidersPath string) (int64, func() error, error)
-	OpenTerraformState(tfStateFileDir string) (int64, func() error, error)
+	OpenTerraformStateRaw(tfStateFileRaw []byte) (int64, func() error, error)
+	OpenTerraformStateByPath(tfStateFilePath string) (int64, func() error, error)
 	MigrateTFState(tfStateHandle int64, stackConfigHandle int64, dependencyLocksHandle int64, providerCacheHandle int64, resources map[string]string, modules map[string]string) (stacks.Stacks_MigrateTerraformStateClient, error)
 }
 
@@ -124,13 +125,35 @@ func (tf *tfStateOperations) OpenProviderCache(dotTFProvidersPath string) (int64
 	}, nil
 }
 
-// OpenTerraformState opens a Terraform state file from the given directory and returns a handle to it.
-func (tf *tfStateOperations) OpenTerraformState(tfStateFileDir string) (int64, func() error, error) {
+// OpenTerraformStateRaw opens a Terraform state file from the provided raw byte slice and returns a handle to it.
+func (tf *tfStateOperations) OpenTerraformStateRaw(tfStateFileRaw []byte) (int64, func() error, error) {
+
+	response, err := tf.client.Stacks().OpenTerraformState(tf.ctx,
+		&stacks.OpenTerraformState_Request{
+			State: &stacks.OpenTerraformState_Request_Raw{
+				Raw: tfStateFileRaw,
+			},
+		})
+
+	if err != nil {
+		return -1, nil, err
+	}
+
+	return response.StateHandle, func() error {
+		_, err := tf.client.Stacks().CloseTerraformState(context.Background(),
+			&stacks.CloseTerraformState_Request{
+				StateHandle: response.StateHandle,
+			})
+		return err
+	}, nil
+}
+
+func (tf *tfStateOperations) OpenTerraformStateByPath(tfStateFilePath string) (int64, func() error, error) {
 
 	response, err := tf.client.Stacks().OpenTerraformState(tf.ctx,
 		&stacks.OpenTerraformState_Request{
 			State: &stacks.OpenTerraformState_Request_ConfigPath{
-				ConfigPath: tfStateFileDir, // tfStateFileDir is the path to the directory where the Terraform state file is located.
+				ConfigPath: tfStateFilePath, // tfStateFilePath is the path to the directory where the Terraform state file is located.
 			},
 		})
 

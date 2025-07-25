@@ -145,8 +145,18 @@ func main() {
         switch result := item.Result.(type) {
         case *stacks.MigrateTerraformState_Event_AppliedChange:
             for _, change := range result.AppliedChange.Descriptions {
-                fmt.Println("Applied change:", jsonOpts.Format(change))
-            }
+				stackState := &tfstacksagent1.StackState{
+					FormatVersion: 1,
+					Raw:           make(map[string]*anypb.Any),
+					Descriptions: map[string]*stacks.AppliedChange_ChangeDescription{
+						"change": change,
+					},
+				}
+				// if err := tfstacksagent1.WriteStateSnapshot(os.Stdout, stackState); err != nil {
+				// 	fmt.Println("Error writing state snapshot:", err)
+				// }
+				// fmt.Println(jsonOpts.Format(stackState))
+			}
         case *stacks.MigrateTerraformState_Event_Diagnostic:
             fmt.Println("Diagnostic:", result.Diagnostic.Detail)
         default:
