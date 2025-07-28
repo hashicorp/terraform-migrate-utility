@@ -28,6 +28,7 @@ type TFStateOperations interface {
 	OpenTerraformStateRaw(tfStateFileRaw []byte) (int64, func() error, error)
 	OpenTerraformStateByPath(tfStateFilePath string) (int64, func() error, error)
 	MigrateTFState(tfStateHandle int64, stackConfigHandle int64, dependencyLocksHandle int64, providerCacheHandle int64, resources map[string]string, modules map[string]string) (stacks.Stacks_MigrateTerraformStateClient, error)
+	IsFullyModular(state []byte) (bool, error)
 }
 
 type tfStateOperations struct {
@@ -189,4 +190,9 @@ func (tf *tfStateOperations) MigrateTFState(tfStateHandle int64, stackConfigHand
 
 	// events emitted can be looped over events.Recv()
 	return events, err
+}
+
+// IsFullyModular checks if the given Terraform state is fully modular.
+func (tf *tfStateOperations) IsFullyModular(state []byte) (bool, error) {
+	panic("implement me")
 }
