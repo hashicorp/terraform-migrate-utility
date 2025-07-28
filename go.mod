@@ -1,6 +1,6 @@
 module terraform-migrate-utility
 
-go 1.24.2
+go 1.24.5
 
 require (
 	github.com/hashicorp/go-plugin v1.6.3

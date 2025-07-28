@@ -44,6 +44,8 @@ import (
     "terraform-migrate-utility/rpcapi/tfstacksagent1"
     stateOps "terraform-migrate-utility/stateops"
 
+    _ "terraform-migrate-utility/rpcapi/tfstackdata1"
+
     "google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -132,11 +134,17 @@ func main() {
         return
     }
 
+    stackState := &tfstacksagent1.StackState{
+		FormatVersion: 1,
+		Raw:           make(map[string]*anypb.Any),
+		Descriptions:  make(map[string]*stacks.AppliedChange_ChangeDescription),
+	}
+
     // Process migration events
     for {
         item, err := events.Recv()
         if err == io.EOF {
-            break // Migration completed successfully
+            break 
         } else if err != nil {
             fmt.Println("Error receiving migration events:", err)
             return
@@ -145,18 +153,12 @@ func main() {
         // Handle different event types
         switch result := item.Result.(type) {
         case *stacks.MigrateTerraformState_Event_AppliedChange:
-            for _, change := range result.AppliedChange.Descriptions {
-				stackState := &tfstacksagent1.StackState{
-					FormatVersion: 1,
-					Raw:           make(map[string]*anypb.Any),
-					Descriptions: map[string]*stacks.AppliedChange_ChangeDescription{
-						"change": change,
-					},
-				}
-				// if err := tfstacksagent1.WriteStateSnapshot(os.Stdout, stackState); err != nil {
-				// 	fmt.Println("Error writing state snapshot:", err)
-				// }
-				// fmt.Println(jsonOpts.Format(stackState))
+            for _, raw := range result.AppliedChange.Raw {
+				stackState.Raw[raw.Key] = raw.Value
+			}
+
+			for _, change := range result.AppliedChange.Descriptions {
+				stackState.Descriptions[change.Key] = change
 			}
         case *stacks.MigrateTerraformState_Event_Diagnostic:
             fmt.Println("Diagnostic:", result.Diagnostic.Detail)
@@ -165,6 +167,7 @@ func main() {
         }
     }
 
+    fmt.Println(jsonOpts.Format(stackState))
     fmt.Println("Migration completed successfully!")
 }
 ```
