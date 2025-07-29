@@ -148,6 +148,11 @@ func (tf *tfStateOperations) OpenTerraformStateRaw(tfStateFileRaw []byte) (int64
 	}, nil
 }
 
+// OpenTerraformStateByPath opens a Terraform state file from the specified path and returns a handle to it.
+// The path should point to the directory where the Terraform state file is located.
+// This function is useful when you have the path to the state file and want to open it
+// without loading the entire file into memory as a byte slice.
+// It returns the state handle, a cleanup function to close the state, and an error if
 func (tf *tfStateOperations) OpenTerraformStateByPath(tfStateFilePath string) (int64, func() error, error) {
 
 	response, err := tf.client.Stacks().OpenTerraformState(tf.ctx,
