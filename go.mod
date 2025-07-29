@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/hashicorp/go-plugin v1.6.3
+	github.com/tidwall/gjson v1.18.0
 	google.golang.org/grpc v1.74.2
 	google.golang.org/protobuf v1.36.6
 )
@@ -16,6 +17,8 @@ require (
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/oklog/run v1.0.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
 	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
