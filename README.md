@@ -16,7 +16,7 @@ This utility provides a Go-based interface to migrate traditional Terraform conf
 
 ## Requirements
 
-- Go 1.24.2 or later
+- Go 1.24.5 or later
 - Terraform CLI with RPC API support
 - Compatible Terraform version (refer to [Terraform Stacks requirements](https://hashi.co/tfstacks-requirements))
 
@@ -28,7 +28,7 @@ go get terraform-migrate-utility
 
 ## Usage
 
-### Basic Usage
+### Example of migrating a Terraform state file to Stacks format:
 
 ```go
 package main
@@ -169,6 +169,45 @@ func main() {
 
     fmt.Println(jsonOpts.Format(stackState))
     fmt.Println("Migration completed successfully!")
+}
+```
+
+### Example use of `TfWorkspaceStateUtility` Interface:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"terraform-migrate-utility/tfstateutil"
+)
+
+func main() {
+
+	// This is a simple example to demonstrate the usage of the TfWorkspaceStateUtility interfaces IsFullyModular function.
+	// It reads the terraform.tfstate file, retrieves managed resources, and checks if the workspace
+	// is fully modular by ensuring all managed resources have a module address.
+	isFullyModuleExample()
+}
+
+func isFullyModuleExample() {
+	data, err := os.ReadFile("terraform.tfstate")
+	if err != nil {
+		panic(fmt.Errorf("failed to read terraform state file: %w", err))
+	}
+
+	tfWsUtility := tfstateutil.NewTfWorkspaceStateUtility(context.Background())
+	managedResources, err := tfWsUtility.GetManagedResources(data)
+	if err != nil {
+		panic(fmt.Errorf("failed to get managed resources: %w", err))
+	}
+
+	fmt.Println("Managed Resources:")
+	fmt.Println(string(managedResources))
+	isFullyModular := tfWsUtility.IsFullyModular(managedResources)
+	fmt.Println("Is Fully Modular:", isFullyModular)
 }
 ```
 
