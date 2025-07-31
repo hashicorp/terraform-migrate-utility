@@ -14,7 +14,7 @@ import (
 	sync "sync"
 	unsafe "unsafe"
 
-	planproto "terraform-migrate-utility/rpcapi/planproto"
+	planproto "github.com/hashicorp/terraform-migrate-utility/rpcapi/planproto"
 
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

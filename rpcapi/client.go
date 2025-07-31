@@ -11,10 +11,10 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
 
-	"terraform-migrate-utility/rpcapi/terraform1/dependencies"
-	"terraform-migrate-utility/rpcapi/terraform1/packages"
-	"terraform-migrate-utility/rpcapi/terraform1/setup"
-	"terraform-migrate-utility/rpcapi/terraform1/stacks"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/dependencies"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/packages"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/setup"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/stacks"
 )
 
 var (
