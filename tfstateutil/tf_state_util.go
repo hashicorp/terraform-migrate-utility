@@ -3,30 +3,41 @@ package tfstateutil
 import (
 	"context"
 	"fmt"
+	"github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/tidwall/gjson"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
 )
 
 const (
-	managedResourcesPath = `resources.#(mode=="managed")#`
-	moduleKey            = `module`
+	managedResourcesPath       = `resources.#(mode=="managed")#`
+	moduleKey                  = `module`
+	stackComponentHCLFileExt   = `.tfcomponent.hcl`
+	firstLevelModuleExpression = `^module\.([^.]+)`
 )
 
 type tfWorkspaceStateUtility struct {
-	ctx context.Context
+	ctx       context.Context
+	hclParser *hclparse.Parser
 }
 
 // TfWorkspaceStateUtility defines the interface for operations related to Terraform workspace state.
 type TfWorkspaceStateUtility interface {
 	GetManagedResources(workspaceStateData []byte) ([]byte, error)
 	IsFullyModular(workspaceStateData []byte) bool
-	WorkspaceToStackAddressMap(workspaceStateData []byte, stackSourceBundleAbsPath string) map[string]string
+	WorkspaceToStackAddressMap(workspaceStateData []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error)
 }
 
 // NewTfWorkspaceStateUtility creates a new instance of TfWorkspaceStateUtility with the provided context.
 // This utility is used to handle operations related to Terraform workspace state.
-func NewTfWorkspaceStateUtility(ctx context.Context) TfWorkspaceStateUtility {
+func NewTfWorkspaceStateUtility(ctx context.Context, parser *hclparse.Parser) TfWorkspaceStateUtility {
 	return &tfWorkspaceStateUtility{
-		ctx: ctx,
+		ctx:       ctx,
+		hclParser: parser,
 	}
 }
 
@@ -69,6 +80,211 @@ func (tf *tfWorkspaceStateUtility) IsFullyModular(managedResourcesJson []byte) b
 }
 
 // WorkspaceToStackAddressMap converts the workspace state data to a map of workspace addresses to stack addresses.
-func (tf *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(workspaceStateData []byte, stackSourceBundleAbsPath string) map[string]string {
-	panic("implement me")
+func (tf *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(managedResourcesJson []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error) {
+	// 1. Validate the stack source bundle path
+	if _, err := validateStacksFiles(stackSourceBundleAbsPath); err != nil {
+		return nil, nil, err
+	}
+
+	// 2. Get all stack files from the stack source bundle path
+	stackFiles, err := getStackFiles(stackSourceBundleAbsPath)
+	if err != nil {
+		fmt.Printf("Error getting stack files: %v\n", err)
+		return nil, nil, err
+	}
+
+	// 3. Create a set to hold all components from the stack files
+	componentsSet := mapset.NewSet[string]()
+
+	// 4. Iterate through each stack file and extract components
+	for _, filePath := range stackFiles {
+		components, err := tf.getAllComponents(filePath)
+		if err != nil {
+			return nil, nil, err
+		}
+		componentsSet.Append(components...)
+	}
+
+	if componentsSet.Cardinality() == 0 {
+		return nil, nil, fmt.Errorf("no components found in the stack files")
+	}
+
+	// 6.Check if all the managed resources have a module address
+	fullyModular := tf.IsFullyModular(managedResourcesJson)
+
+	// 5. Get all modules from the managed resources JSON
+	modulesSet := getModulesFromWorkspaceState(managedResourcesJson)
+
+	// 7. Validate the components and modules sets
+	// This validation is crucial in scenarios where the Terraform configuration files governing HCP Terraform workspaces have been fully modularized,
+	// but the corresponding workspace state files have not yet been updated to reflect this modularization.
+	// In such cases, all managed resources should be mapped to a single stack component address.
+	// This typically occurs when a previously non-modularized HCP Terraform workspace configuration has undergone modularization using the `tfmigrate` tool.
+	// As a result, the configuration files become fully modularized with a single module, while the state files remain in their original, non-modularized format.
+	// This approach ensures that stack configuration files are generated only when the Terraform configuration files are fully modularized.
+	if !fullyModular && componentsSet.Cardinality() > 1 {
+		return nil, nil, fmt.Errorf("the workspace is not fully modular, but multiple components found: %v", componentsSet.ToSlice())
+	}
+
+	// 8. Check if the components and modules sets have any differences
+	// If the workspace is fully modular, the component names must match the module names.
+	// If there are any differences, return an error.
+	hasDifference := (modulesSet.Difference(componentsSet).Cardinality() > 0) || (componentsSet.Difference(modulesSet).Cardinality() > 0)
+	if fullyModular && hasDifference {
+		return nil, nil, fmt.Errorf("the workspace is fully modular componet names must match module names, componets set: %v, modules set: %v", componentsSet.ToSlice(), modulesSet.ToSlice())
+	}
+
+	rootResourceAddressMap := make(map[string]string)
+	moduleAddressMap := make(map[string]string)
+	if !fullyModular {
+		rootModuleResourceAddresses := getRootModuleResourceAddresses(managedResourcesJson)
+		componentName := componentsSet.ToSlice()[0]
+		if rootModuleResourceAddresses.Cardinality() > 0 {
+			for _, rootModuleResource := range rootModuleResourceAddresses.ToSlice() {
+				rootResourceAddressMap[rootModuleResource] = "component." + componentName
+			}
+		}
+
+		for _, module := range modulesSet.ToSlice() {
+			moduleAddressMap[module] = componentName
+		}
+
+	} else {
+		// If the workspace is fully modular, we map each component to its corresponding module address
+		for _, component := range componentsSet.ToSlice() {
+			moduleAddressMap[component] = component
+		}
+	}
+
+	return rootResourceAddressMap, moduleAddressMap, nil
+}
+
+func getStackFiles(stackSourceBundleAbsPath string) ([]string, error) {
+	filePathGlobPattern := fmt.Sprintf("%s%s*%s", stackSourceBundleAbsPath, string(os.PathSeparator), stackComponentHCLFileExt)
+	files, err := filepath.Glob(filePathGlobPattern)
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching stack files from path %s, err: %w", stackSourceBundleAbsPath, err)
+	}
+	return files, nil
+}
+
+func (tf *tfWorkspaceStateUtility) getAllComponents(filePath string) ([]string, error) {
+	// parse the hcl file at the given filePath
+	file, diags := tf.hclParser.ParseHCLFile(filePath)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("failed to parse HCL file %s, err: %v", filePath, diags.Error())
+	}
+
+	// check if the file is nil or has no body
+	if file == nil || file.Body == nil {
+		return nil, nil
+	}
+
+	// define the schema to extract blocks of type "component" with a label "name"
+	schema := &hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{
+			{
+				Type:       "component",
+				LabelNames: []string{"name"},
+			},
+		},
+	}
+
+	// use PartialContent to get the content of the file that matches the schema
+	// this will return the blocks of type "component" with their labels
+	// it is important that we use PartialContent here,
+	// as the parsed file may contain other blocks that we are not interested in
+	content, _, diags := file.Body.PartialContent(schema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	// check if the content is nil or has no content blocks
+	// if so, return nil
+	if content == nil || len(content.Blocks) == 0 {
+		return nil, nil
+	}
+
+	var components []string
+
+	// let us iterate through the blocks and extract the labels
+	// we assume that each block of a type "component" has one label (the name)
+	// if there are multiple labels, we will only take the first one
+	// we also assume that we have exactly one distinct label per component block
+	for _, block := range content.Blocks {
+		// The block type is "component" and it has one label (the name)
+		components = append(components, block.Labels[0])
+	}
+
+	return components, nil
+}
+
+func validateStacksFiles(stackSourceBundleAbsPath string) (bool, error) {
+	// check if the stack source bundle path exists and is a directory
+	if info, err := os.Stat(stackSourceBundleAbsPath); os.IsNotExist(err) {
+		return false, fmt.Errorf("stack source bundle path does not exist: %s", stackSourceBundleAbsPath)
+	} else if err != nil {
+		return false, fmt.Errorf("error checking stack source bundle path: %w", err)
+	} else if !info.IsDir() {
+		return false, fmt.Errorf("stack source bundle path is not a directory: %s", stackSourceBundleAbsPath)
+	}
+
+	// change directory to the stack source bundle path
+	if err := os.Chdir(stackSourceBundleAbsPath); err != nil {
+		return false, fmt.Errorf("error changing directory to stack source bundle path: %w", err)
+	}
+
+	// run terraform stacks validate command to verify the stacks files are valid
+	cmd := exec.Command("terraform", "stacks", "validate")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return false, fmt.Errorf("error running terraform stacks validate command, err: %s", string(output))
+	}
+	// if the command runs successfully, return true
+	return true, nil
+}
+
+func getModulesFromWorkspaceState(managedResourcesJson []byte) mapset.Set[string] {
+	modulesSet := mapset.NewSet[string]()
+	managedResources := gjson.ParseBytes(managedResourcesJson).Array()
+	for _, resource := range managedResources {
+		// check if the resource has a module address
+		if !resource.Get(moduleKey).Exists() {
+			continue
+		}
+
+		moduleAddress := resource.Get(moduleKey).String()
+		mod := extractFirstLevelModule(moduleAddress)
+		if mod != "" {
+			modulesSet.Add(mod)
+		}
+	}
+	return modulesSet
+}
+
+func extractFirstLevelModule(input string) string {
+	re := regexp.MustCompile(firstLevelModuleExpression)
+	matches := re.FindStringSubmatch(input)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+func getRootModuleResourceAddresses(managedResourcesJson []byte) mapset.Set[string] {
+	rootModuleResourceAddresses := mapset.NewSet[string]()
+	for _, resource := range gjson.ParseBytes(managedResourcesJson).Array() {
+		if !resource.Get(moduleKey).Exists() {
+			instancesCount := resource.Get("instances.#").Int()
+			resourceAddress := resource.Get("type").String() + "." + resource.Get("name").String()
+			if instancesCount == 1 {
+				rootModuleResourceAddresses.Add(resourceAddress)
+				continue
+			}
+			for i := 0; i < int(instancesCount); i++ {
+				rootModuleResourceAddresses.Add(fmt.Sprintf("%s[%d]", resourceAddress, i))
+			}
+		}
+	}
+
+	return rootModuleResourceAddresses
 }
