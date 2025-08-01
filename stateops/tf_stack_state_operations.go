@@ -4,10 +4,11 @@ package stateops
 
 import (
 	"context"
-	"terraform-migrate-utility/rpcapi"
-	"terraform-migrate-utility/rpcapi/terraform1"
-	"terraform-migrate-utility/rpcapi/terraform1/dependencies"
-	"terraform-migrate-utility/rpcapi/terraform1/stacks"
+
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/dependencies"
+	"github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/stacks"
 )
 
 // Order of execution:

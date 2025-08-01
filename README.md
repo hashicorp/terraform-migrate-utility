@@ -23,7 +23,7 @@ This utility provides a Go-based interface to migrate traditional Terraform conf
 ## Installation
 
 ```bash
-go get terraform-migrate-utility
+go get github.com/hashicorp/terraform-migrate-utility
 ```
 
 ## Usage
@@ -39,12 +39,12 @@ import (
     "io"
     "os"
     "path/filepath"
-    "terraform-migrate-utility/rpcapi"
-    "terraform-migrate-utility/rpcapi/terraform1/stacks"
-    "terraform-migrate-utility/rpcapi/tfstacksagent1"
-    stateOps "terraform-migrate-utility/stateops"
+    "github.com/hashicorp/terraform-migrate-utility/rpcapi"
+    "github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/stacks"
+    "github.com/hashicorp/terraform-migrate-utility/rpcapi/tfstacksagent1"
+    stateOps "github.com/hashicorp/terraform-migrate-utility/stateops"
 
-    _ "terraform-migrate-utility/rpcapi/tfstackdata1"
+    _ "github.com/hashicorp/terraform-migrate-utility/rpcapi/tfstackdata1"
 
     "google.golang.org/protobuf/encoding/protojson"
 )
