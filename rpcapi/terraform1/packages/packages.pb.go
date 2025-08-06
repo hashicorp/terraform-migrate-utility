@@ -13,8 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 	sync "sync"
-	terraform1 "terraform-migrate-utility/rpcapi/terraform1"
 	unsafe "unsafe"
+
+	terraform1 "github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1"
 
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"

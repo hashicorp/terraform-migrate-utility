@@ -9,7 +9,6 @@ import "terraform1.proto";
 import "dependencies/dependencies.proto";
 import "stacks/stacks.proto";
 
-option go_package = terraform-migrate-utility/rpcapi/tfstacksagent1";
 
 // Describes our "raw config" format that passes verbatim from stack_prepare
 // to both stack_plan and stack_apply, so that the agent can pass arbitrary

@@ -13,9 +13,9 @@ import (
 	reflect "reflect"
 	sync "sync"
 
-	terraform1 "terraform-migrate-utility/rpcapi/terraform1"
-	dependencies "terraform-migrate-utility/rpcapi/terraform1/dependencies"
-	stacks "terraform-migrate-utility/rpcapi/terraform1/stacks"
+	terraform1 "github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1"
+	dependencies "github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/dependencies"
+	stacks "github.com/hashicorp/terraform-migrate-utility/rpcapi/terraform1/stacks"
 
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

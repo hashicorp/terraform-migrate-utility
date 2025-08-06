@@ -1,4 +1,4 @@
-module terraform-migrate-utility
+module github.com/hashicorp/terraform-migrate-utility
 
 go 1.24.5
 
