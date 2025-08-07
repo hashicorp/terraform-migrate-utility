@@ -15,6 +15,7 @@ import (
 
 const (
 	managedResourcesPath       = `resources.#(mode=="managed")#`
+	managedDataPath            = `resources.#(mode=="data")#`
 	moduleKey                  = `module`
 	stackComponentHCLFileExt   = `.tfcomponent.hcl`
 	firstLevelModuleExpression = `^module\.([^.]+)`
@@ -29,7 +30,8 @@ type tfWorkspaceStateUtility struct {
 type TfWorkspaceStateUtility interface {
 	GetManagedResources(workspaceStateData []byte) ([]byte, error)
 	IsFullyModular(workspaceStateData []byte) bool
-	WorkspaceToStackAddressMap(workspaceStateData []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error)
+	WorkspaceToStackAddressMap(managedResourcesJson []byte, dataResourcesJson []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error)
+	GetDataResources(workspaceStateData []byte) ([]byte, error)
 }
 
 // NewTfWorkspaceStateUtility creates a new instance of TfWorkspaceStateUtility with the provided context.
@@ -39,6 +41,24 @@ func NewTfWorkspaceStateUtility(ctx context.Context, parser *hclparse.Parser) Tf
 		ctx:       ctx,
 		hclParser: parser,
 	}
+}
+
+// GetDataResources retrieves all data resources from the provided workspace state data.
+// add an error handling when the workspace state data is not valid JSON or
+// does not have any data resources.
+func (tf *tfWorkspaceStateUtility) GetDataResources(workspaceStateData []byte) ([]byte, error) {
+	if !gjson.Valid(string(workspaceStateData)) {
+		return nil, fmt.Errorf("invalid workspace state data, expected valid JSON")
+	}
+	// use gjson to get all data resources from the workspace state data
+	// the path is defined as resources.#(mode=="data")
+	dataResources := gjson.GetBytes(workspaceStateData, managedDataPath)
+	if !dataResources.Exists() {
+		return nil, fmt.Errorf("no data resources found in the workspace state data")
+	}
+
+	// return the array of data resources
+	return []byte(dataResources.Raw), nil
 }
 
 // GetManagedResources retrieves all managed resources from the provided workspace state data.
@@ -80,7 +100,7 @@ func (tf *tfWorkspaceStateUtility) IsFullyModular(managedResourcesJson []byte) b
 }
 
 // WorkspaceToStackAddressMap converts the workspace state data to a map of workspace addresses to stack addresses.
-func (tf *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(managedResourcesJson []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error) {
+func (tf *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(managedResourcesJson []byte, dataResourcesJson []byte, stackSourceBundleAbsPath string) (map[string]string, map[string]string, error) {
 	// 1. Validate the stack source bundle path
 	if _, err := validateStacksFiles(stackSourceBundleAbsPath); err != nil {
 		return nil, nil, err
@@ -138,10 +158,18 @@ func (tf *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(managedResourcesJs
 	moduleAddressMap := make(map[string]string)
 	if !fullyModular {
 		rootModuleResourceAddresses := getRootModuleResourceAddresses(managedResourcesJson)
+		rootModuleDataResources := getRootModuleDataAddresses(dataResourcesJson)
+
 		componentName := componentsSet.ToSlice()[0]
 		if rootModuleResourceAddresses.Cardinality() > 0 {
 			for _, rootModuleResource := range rootModuleResourceAddresses.ToSlice() {
 				rootResourceAddressMap[rootModuleResource] = "component." + componentName
+			}
+		}
+
+		if rootModuleDataResources.Cardinality() > 0 {
+			for _, rootModuleData := range rootModuleDataResources.ToSlice() {
+				rootResourceAddressMap[rootModuleData] = "component." + componentName
 			}
 		}
 
@@ -287,4 +315,23 @@ func getRootModuleResourceAddresses(managedResourcesJson []byte) mapset.Set[stri
 	}
 
 	return rootModuleResourceAddresses
+}
+
+func getRootModuleDataAddresses(dataResourcesJson []byte) mapset.Set[string] {
+	rootModuleDataAddresses := mapset.NewSet[string]()
+	for _, resource := range gjson.ParseBytes(dataResourcesJson).Array() {
+		if !resource.Get(moduleKey).Exists() {
+			instancesCount := resource.Get("instances.#").Int()
+			resourceAddress := resource.Get("mode").String() + "." + resource.Get("type").String() + "." + resource.Get("name").String()
+			if instancesCount == 1 {
+				rootModuleDataAddresses.Add(resourceAddress)
+				continue
+			}
+			for i := 0; i < int(instancesCount); i++ {
+				rootModuleDataAddresses.Add(fmt.Sprintf("%s[%d]", resourceAddress, i))
+			}
+		}
+	}
+
+	return rootModuleDataAddresses
 }
