@@ -21,6 +21,19 @@ import (
 // 6. MigrateTFState
 // close open handles and stop the RPC server
 
+// WorkspaceToStackStateConversionRequest represents the request parameters for converting a Terraform workspace state to a stack state.
+type WorkspaceToStackStateConversionRequest struct {
+	Ctx                         context.Context   // Ctx for the request, used for cancellation and deadlines.
+	Client                      rpcapi.Client     // Client to communicate with the RPC server.
+	CurrentWorkingDir           string            // CurrentWorkingDir is the current working directory of the application used to resolve relative paths.
+	RawStateData                []byte            // RawStateData is the raw Terraform state data to be processed.
+	StateOpsHandler             TFStateOperations // StateOpsHandler is the handler for state operations used to perform various operations on the Terraform state.
+	StackSourceBundleAbsPath    string            // StackSourceBundleAbsPath is the absolute path to the stack configuration source bundle.
+	TerraformConfigFilesAbsPath string            // TerraformConfigFilesAbsPath is the absolute path to the directory containing Terraform configuration files.
+	AbsoluteResourceAddressMap  map[string]string // AbsoluteResourceAddressMap is a map of absolute resource addresses to stack addresses.
+	ModuleAddressMap            map[string]string // ModuleAddressMap is a map of module addresses to stack addresses.
+}
+
 type TFStateOperations interface {
 	OpenSourceBundle(dotTFModulesPath string) (int64, func() error, error)
 	OpenStacksConfiguration(sourceBundleHandle int64, stackConfigPath string) (int64, func() error, error)
