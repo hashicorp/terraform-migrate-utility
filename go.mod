@@ -5,7 +5,7 @@ go 1.24.5
 require (
 	github.com/hashicorp/go-plugin v1.7.0
 	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 )
 
 require (
