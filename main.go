@@ -25,7 +25,7 @@ const (
 	//terraformConfigDirAbsPath = "/Users/sujaysamanta/Workspace/Codebase/terraform-migrate-utility/terraform-no-mod-v1/modularized_config"
 
 	stackSourceBundleAbsPath  = "/Users/sujaysamanta/Workspace/PlayGround/pet-nulls/_stacks_generated"
-	terraformStateFileAbsPath = "/Users/sujaysamanta/Workspace/PlayGround/pet-nulls/_stacks_generated/terraform_state/terraform.tfstate"
+	terraformStateFileAbsPath = "/Users/sujaysamanta/Workspace/PlayGround/pet-nulls/terraform_state/terraform.tfstate"
 	terraformConfigDirAbsPath = "/Users/sujaysamanta/Workspace/PlayGround/pet-nulls"
 	fileWriteLocation         = "/Users/sujaysamanta/Workspace/PlayGround/pet-nulls/stack_state/"
 )
