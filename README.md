@@ -16,7 +16,7 @@ This utility provides a Go-based interface to migrate traditional Terraform conf
 
 ## Requirements
 
-- Go 1.24.2 or later
+- Go 1.24.5 or later
 - Terraform CLI with RPC API support
 - Compatible Terraform version (refer to [Terraform Stacks requirements](https://hashi.co/tfstacks-requirements))
 
@@ -28,7 +28,7 @@ go get github.com/hashicorp/terraform-migrate-utility
 
 ## Usage
 
-### Basic Usage
+### Example of migrating a Terraform state file to Stacks format:
 
 ```go
 package main
@@ -169,6 +169,77 @@ func main() {
 
     fmt.Println(jsonOpts.Format(stackState))
     fmt.Println("Migration completed successfully!")
+}
+```
+
+### Example use of `TfWorkspaceStateUtility` Interface:
+
+```go
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"terraform-migrate-utility/tfstateutil"
+)
+
+const (
+	stackSourceBundleAbsPath  = "/Users/sujaysamanta/Workspace/Codebase/terraform-migrate-utility/terraform-no-mod-v1/modularized_config/_stacks_generated"
+	terraformConfigDirAbsPath = "/Users/sujaysamanta/Workspace/Codebase/terraform-migrate-utility/terraform-no-mod-v1/modularized_config"
+)
+
+func main() {
+	var err error
+	ctx := context.Background()
+	tfStateUtil := stateUtil.NewTfWorkspaceStateUtility(ctx)
+
+	// Read all resources from the Terraform state file
+	resources, err := listAllResourcesFromWorkspaceStateExample(tfStateUtil, terraformConfigDirAbsPath)
+	if err != nil {
+		panic("Failed to list all resources from workspace state: " + err.Error())
+	} else {
+		fmt.Println("Resources in the Terraform state:")
+		for _, resource := range resources {
+			fmt.Println(resource)
+		}
+		fmt.Println()
+	}
+
+	// Check if the resources are fully modular
+	stateFullyModular := isFullyModularExample(tfStateUtil, resources)
+	if stateFullyModular {
+		fmt.Println("The Terraform state is fully modular.")
+		fmt.Println()
+	} else {
+		fmt.Println("The Terraform state is not fully modular.")
+		fmt.Println()
+	}
+
+	// Create a map of workspace to stack address
+	workspaceToStackMap, err := workspaceToStackAddressMapExample(tfStateUtil, terraformConfigDirAbsPath, stackSourceBundleAbsPath)
+	if err != nil {
+		panic("Failed to create workspace to stack address map: " + err.Error())
+	} else {
+		fmt.Println("Workspace to Stack Address Map:")
+		indent, _ := json.MarshalIndent(workspaceToStackMap, "", "  ")
+		fmt.Println(string(indent))
+		fmt.Println()
+	}
+}
+
+
+func listAllResourcesFromWorkspaceStateExample(tfStateUtil stateUtil.TfWorkspaceStateUtility, workingDir string) ([]string, error) {
+	return tfStateUtil.ListAllResourcesFromWorkspaceState(workingDir)
+}
+
+func isFullyModularExample(tfStateUtil stateUtil.TfWorkspaceStateUtility, resources []string) bool {
+	return tfStateUtil.IsFullyModular(resources)
+}
+
+func workspaceToStackAddressMapExample(tfStateUtil stateUtil.TfWorkspaceStateUtility, terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error) {
+	return tfStateUtil.WorkspaceToStackAddressMap(terraformConfigFilesAbsPath, stackSourceBundleAbsPath)
 }
 ```
 

@@ -12,7 +12,7 @@ import (
 )
 
 // Order of execution:
-// Create the RPC Client
+// Create RPC Client
 // 1. OpenTerraformState
 // 2. OpenSourceBundle
 // 3. OpenStacksConfiguration
@@ -20,6 +20,19 @@ import (
 // 5. OpenProviderCache
 // 6. MigrateTFState
 // close open handles and stop the RPC server
+
+// WorkspaceToStackStateConversionRequest represents the request parameters for converting a Terraform workspace state to a stack state.
+type WorkspaceToStackStateConversionRequest struct {
+	Ctx                         context.Context   // Ctx for the request, used for cancellation and deadlines.
+	Client                      rpcapi.Client     // Client to communicate with the RPC server.
+	CurrentWorkingDir           string            // CurrentWorkingDir is the current working directory of the application used to resolve relative paths.
+	RawStateData                []byte            // RawStateData is the raw Terraform state data to be processed.
+	StateOpsHandler             TFStateOperations // StateOpsHandler is the handler for state operations used to perform various operations on the Terraform state.
+	StackSourceBundleAbsPath    string            // StackSourceBundleAbsPath is the absolute path to the stack configuration source bundle.
+	TerraformConfigFilesAbsPath string            // TerraformConfigFilesAbsPath is the absolute path to the directory containing Terraform configuration files.
+	AbsoluteResourceAddressMap  map[string]string // AbsoluteResourceAddressMap is a map of absolute resource addresses to stack addresses.
+	ModuleAddressMap            map[string]string // ModuleAddressMap is a map of module addresses to stack addresses.
+}
 
 type TFStateOperations interface {
 	OpenSourceBundle(dotTFModulesPath string) (int64, func() error, error)
@@ -149,6 +162,11 @@ func (tf *tfStateOperations) OpenTerraformStateRaw(tfStateFileRaw []byte) (int64
 	}, nil
 }
 
+// OpenTerraformStateByPath opens a Terraform state file from the specified path and returns a handle to it.
+// The path should point to the directory where the Terraform state file is located.
+// This function is useful when you have the path to the state file and want to open it
+// without loading the entire file into memory as a byte slice.
+// It returns the state handle, a cleanup function to close the state, and an error if
 func (tf *tfStateOperations) OpenTerraformStateByPath(tfStateFilePath string) (int64, func() error, error) {
 
 	response, err := tf.client.Stacks().OpenTerraformState(tf.ctx,
