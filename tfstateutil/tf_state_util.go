@@ -24,11 +24,16 @@ type tfWorkspaceStateUtility struct {
 	hclParser *hclparse.Parser
 }
 
+func (t *tfWorkspaceStateUtility) UpdateContext(ctx context.Context) {
+	t.ctx = ctx
+}
+
 // TfWorkspaceStateUtility defines the interface for utility functions related to Terraform workspace state.
 type TfWorkspaceStateUtility interface {
 	IsFullyModular(resources []string) bool
 	ListAllResourcesFromWorkspaceState(workingDir string) ([]string, error)
 	WorkspaceToStackAddressMap(terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error)
+	UpdateContext(ctx context.Context)
 }
 
 // NewTfWorkspaceStateUtility creates a new instance of tfWorkspaceStateUtility with the provided context.
@@ -95,7 +100,7 @@ func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceState(workingDir 
 func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error) {
 	var workspaceToStackAddressMap = make(map[string]string)
 
-	// 1. Validate the stack source bundle path
+	//1. Validate the stack source bundle path
 	//if _, err := t.validateStacksFiles(stackSourceBundleAbsPath); err != nil {
 	//	return nil, fmt.Errorf("erro validating stack config files in path %s, err: %v", stackSourceBundleAbsPath, err)
 	//}
@@ -159,8 +164,6 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFile
 }
 
 // validateStacksFiles checks if the provided path contains valid stack configuration files.
-// validateStacksFiles checks if the provided path contains valid stack configuration files.
-// It executes the `terraform stacks validate` command in the given directory and returns true if successful.
 func (t *tfWorkspaceStateUtility) validateStacksFiles(stackSourceBundleAbsPath string) (bool, error) {
 	// Check if the path exists and is a directory
 	info, err := os.Stat(stackSourceBundleAbsPath)
