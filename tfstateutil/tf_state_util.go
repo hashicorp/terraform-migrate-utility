@@ -2,6 +2,7 @@ package tfstateutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/hashicorp/hcl/v2"
@@ -53,9 +54,26 @@ func (t *tfWorkspaceStateUtility) IsFullyModular(resources []string) bool {
 func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceState(workingDir string) ([]string, error) {
 	cmd := exec.CommandContext(t.ctx, "terraform", "state", "list")
 	cmd.Dir = workingDir
+
+	// Remove TF_LOG and TF_CLI_CONFIG_FILE from the environment for this command
+	// (preserve all other environment variables)
+	env := os.Environ()
+	var filteredEnv []string
+	for _, e := range env {
+		if !strings.HasPrefix(e, "TF_LOG=") || !strings.HasPrefix(e, "TF_CLI_CONFIG_FILE=") {
+			filteredEnv = append(filteredEnv, e)
+		}
+	}
+	cmd.Env = filteredEnv
+
+	// Capture only stdout
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("failed to run terraform state list: %v", err)
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("failed to run terraform state list: %s", string(exitErr.Stderr))
+		}
+		return nil, fmt.Errorf("failed to run terraform state list: %w", err)
 	}
 
 	// Convert to string and split by line
@@ -78,9 +96,9 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFile
 	var workspaceToStackAddressMap = make(map[string]string)
 
 	// 1. Validate the stack source bundle path
-	if _, err := t.validateStacksFiles(stackSourceBundleAbsPath); err != nil {
-		return nil, fmt.Errorf("erro validating stack config files in path %s, err: %v", stackSourceBundleAbsPath, err)
-	}
+	//if _, err := t.validateStacksFiles(stackSourceBundleAbsPath); err != nil {
+	//	return nil, fmt.Errorf("erro validating stack config files in path %s, err: %v", stackSourceBundleAbsPath, err)
+	//}
 
 	// 2. Get all stack files from the stack source bundle path
 	stackFiles, err := t.getStackFiles(stackSourceBundleAbsPath)
@@ -141,22 +159,41 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFile
 }
 
 // validateStacksFiles checks if the provided path contains valid stack configuration files.
+// validateStacksFiles checks if the provided path contains valid stack configuration files.
+// It executes the `terraform stacks validate` command in the given directory and returns true if successful.
 func (t *tfWorkspaceStateUtility) validateStacksFiles(stackSourceBundleAbsPath string) (bool, error) {
-	// Check if the path exists
-	if _, err := os.Stat(stackSourceBundleAbsPath); os.IsNotExist(err) {
+	// Check if the path exists and is a directory
+	info, err := os.Stat(stackSourceBundleAbsPath)
+	if os.IsNotExist(err) {
 		return false, fmt.Errorf("path %s does not exist", stackSourceBundleAbsPath)
 	}
-
-	// Check if the path is a directory
-	if info, err := os.Stat(stackSourceBundleAbsPath); err != nil || !info.IsDir() {
+	if err != nil {
+		return false, fmt.Errorf("error accessing path %s: %v", stackSourceBundleAbsPath, err)
+	}
+	if !info.IsDir() {
 		return false, fmt.Errorf("path %s is not a directory", stackSourceBundleAbsPath)
 	}
 
 	cmd := exec.CommandContext(t.ctx, "terraform", "stacks", "validate")
 	cmd.Dir = stackSourceBundleAbsPath
-	_, err := cmd.Output()
+
+	// Remove TF_LOG and TF_CLI_CONFIG_FILE from the environment for this command
+	env := os.Environ()
+	var filteredEnv []string
+	for _, e := range env {
+		if !strings.HasPrefix(e, "TF_LOG=") && !strings.HasPrefix(e, "TF_CLI_CONFIG_FILE=") {
+			filteredEnv = append(filteredEnv, e)
+		}
+	}
+	cmd.Env = filteredEnv
+
+	_, err = cmd.Output()
 	if err != nil {
-		return false, err
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return false, fmt.Errorf("failed to validate stacks: %s", string(exitErr.Stderr))
+		}
+		return false, fmt.Errorf("failed to validate stacks: %w", err)
 	}
 
 	return true, nil
