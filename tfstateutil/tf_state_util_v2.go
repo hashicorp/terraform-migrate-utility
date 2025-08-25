@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package tfstateutil
 
 // This code has been kept as a reference for the previous implementation of the tfWorkspaceStateUtility.
