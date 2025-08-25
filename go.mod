@@ -6,7 +6,7 @@ require (
 	github.com/deckarep/golang-set/v2 v2.8.0
 	github.com/hashicorp/go-plugin v1.7.0
 	github.com/hashicorp/hcl/v2 v2.24.0
-	google.golang.org/grpc v1.74.2
+	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
 )
 
@@ -22,11 +22,11 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/zclconf/go-cty v1.16.3 // indirect
-	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/mod v0.25.0 // indirect
+	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250528174236-200df99c418a // indirect
+	golang.org/x/text v0.26.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
 )
