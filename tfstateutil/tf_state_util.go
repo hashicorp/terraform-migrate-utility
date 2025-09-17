@@ -22,6 +22,13 @@ const (
 	firstLevelModuleExpression = `^module\.([^.]+)`
 )
 
+// WorkspaceToStackAddressMapRequest represents the request parameters for mapping workspace resources to stack addresses.
+type WorkspaceToStackAddressMapRequest struct {
+	StackSourceBundleAbsPath    string
+	StateFilePath               string
+	TerraformConfigFilesAbsPath string
+}
+
 type tfWorkspaceStateUtility struct {
 	ctx       context.Context
 	hclParser *hclparse.Parser
@@ -32,7 +39,7 @@ type TfWorkspaceStateUtility interface {
 	IsFullyModular(resources []string) bool
 	ListAllResourcesFromWorkspaceState(workingDir string) ([]string, error)
 	ListAllResourcesFromWorkspaceStateWithStateFile(workingDir string, stateFilePath string) ([]string, error)
-	WorkspaceToStackAddressMap(terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error)
+	WorkspaceToStackAddressMap(request WorkspaceToStackAddressMapRequest) (map[string]string, error)
 }
 
 // NewTfWorkspaceStateUtility creates a new instance of tfWorkspaceStateUtility with the provided context.
@@ -141,7 +148,7 @@ func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceStateWithStateFil
 // Returns a map where keys are resource identifiers and values are stack addresses.
 // If the state is not fully modular, it expects exactly one component and maps all resources to that component's address.
 // If the state is fully modular, it maps resources to their corresponding top-level module addresses.
-func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error) {
+func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(request WorkspaceToStackAddressMapRequest) (map[string]string, error) {
 	var workspaceToStackAddressMap = make(map[string]string)
 
 	// 1. Validate the stack source bundle path
@@ -150,7 +157,7 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFile
 	//}
 
 	// 2. Get all stack files from the stack source bundle path
-	stackFiles, err := t.getStackFiles(stackSourceBundleAbsPath)
+	stackFiles, err := t.getStackFiles(request.StackSourceBundleAbsPath)
 	if err != nil {
 		fmt.Printf("Error getting stack files: %v\n", err)
 		return nil, err
@@ -170,10 +177,19 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(terraformConfigFile
 		return nil, fmt.Errorf("no components found in the stack files")
 	}
 
+	var resources []string
+
 	// 4. get all the resources from the terraform config files
-	resources, err := t.ListAllResourcesFromWorkspaceState(terraformConfigFilesAbsPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list resources from workspace state: %v", err)
+	if request.StateFilePath == "" {
+		resources, err = t.ListAllResourcesFromWorkspaceState(request.TerraformConfigFilesAbsPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources from workspace state: %v", err)
+		}
+	} else {
+		resources, err = t.ListAllResourcesFromWorkspaceStateWithStateFile(request.TerraformConfigFilesAbsPath, request.StateFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources from workspace state with state file: %v", err)
+		}
 	}
 
 	if isFullyModular := t.IsFullyModular(resources); !isFullyModular {
