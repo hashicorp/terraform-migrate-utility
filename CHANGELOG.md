@@ -1,3 +1,9 @@
+# v0.0.3 (17th Sep 2025)
+
+## Enhancements
+* Added support for listing resource from terraform state file.
+* Fixed bug in terraform workspace to stack address mapping function.
+
 # v0.0.2 (25st Aug 2025)
 
 ## Enhancements
