@@ -31,6 +31,7 @@ type tfWorkspaceStateUtility struct {
 type TfWorkspaceStateUtility interface {
 	IsFullyModular(resources []string) bool
 	ListAllResourcesFromWorkspaceState(workingDir string) ([]string, error)
+	ListAllResourcesFromWorkspaceStateWithStateFile(workingDir string, stateFilePath string) ([]string, error)
 	WorkspaceToStackAddressMap(terraformConfigFilesAbsPath string, stackSourceBundleAbsPath string) (map[string]string, error)
 }
 
@@ -88,6 +89,51 @@ func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceState(workingDir 
 
 	return resources, nil
 
+}
+
+// ListAllResourcesFromWorkspaceStateWithStateFile lists all resources from the Terraform workspace state in the specified working directory,
+// using the provided state file path. It executes the `terraform state list -state=stateFilePath` command and returns the resources as a slice of strings.
+func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceStateWithStateFile(workingDir string, stateFilePath string) ([]string, error) {
+	_, err := os.Stat(stateFilePath)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("state file %s does not exist", stateFilePath)
+	}
+
+	args := []string{"state", "list"}
+	args = append(args, "-state="+stateFilePath)
+
+	cmd := exec.CommandContext(t.ctx, "terraform", "state", "list")
+	cmd.Dir = workingDir
+
+	// Remove TF_LOG and TF_CLI_CONFIG_FILE from the environment for this command
+	// (preserve all other environment variables)
+	env := os.Environ()
+	var filteredEnv []string
+	for _, e := range env {
+		if !strings.HasPrefix(e, "TF_LOG=") || !strings.HasPrefix(e, "TF_CLI_CONFIG_FILE=") {
+			filteredEnv = append(filteredEnv, e)
+		}
+	}
+	cmd.Env = filteredEnv
+
+	// Capture only stdout
+	output, err := cmd.Output()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return nil, fmt.Errorf("failed to run terraform state list: %s", string(exitErr.Stderr))
+		}
+		return nil, fmt.Errorf("failed to run terraform state list: %w", err)
+	}
+
+	// Convert to string and split by line
+	resources := strings.Split(strings.TrimSpace(string(output)), "\n")
+
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("no resources found in the Terraform state")
+	}
+
+	return resources, nil
 }
 
 // WorkspaceToStackAddressMap creates a mapping of workspace resources to stack addresses based on the provided Terraform configuration files and stack source bundle path.
