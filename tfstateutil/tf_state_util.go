@@ -102,7 +102,7 @@ func (t *tfWorkspaceStateUtility) ListAllResourcesFromWorkspaceStateWithStateFil
 	args := []string{"state", "list"}
 	args = append(args, "-state="+stateFilePath)
 
-	cmd := exec.CommandContext(t.ctx, "terraform", "state", "list")
+	cmd := exec.CommandContext(t.ctx, "terraform", args...)
 	cmd.Dir = workingDir
 
 	// Remove TF_LOG and TF_CLI_CONFIG_FILE from the environment for this command
