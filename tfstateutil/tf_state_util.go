@@ -7,14 +7,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclparse"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclparse"
 )
 
 const (
@@ -224,8 +225,9 @@ func (t *tfWorkspaceStateUtility) WorkspaceToStackAddressMap(request WorkspaceTo
 }
 
 // validateStacksFiles checks if the provided path contains valid stack configuration files.
-// validateStacksFiles checks if the provided path contains valid stack configuration files.
 // It executes the `terraform stacks validate` command in the given directory and returns true if successful.
+//
+//nolint:unused // this is intentionally unused for now
 func (t *tfWorkspaceStateUtility) validateStacksFiles(stackSourceBundleAbsPath string) (bool, error) {
 	// Check if the path exists and is a directory
 	info, err := os.Stat(stackSourceBundleAbsPath)
